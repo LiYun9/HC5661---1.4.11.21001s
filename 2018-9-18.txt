@@ -1,0 +1,482 @@
+今天中华北营业厅有需求
+
+目前布局如下
+
+用的天翼网关（路由模式），有wifi（因为在角落，信号不好，所以没人用），4个百兆网口。在一个角落的设备间。
+天翼网关的LAN地址为192.168.1.1
+
+
+1、其中一个点为电视盒子展示墙，在一楼需要有wifi和iptv信号，而且必须是两路iptv信号（分别是普通高清盒子，与高清快速EPG盒子，区别就是换台快慢，EPG是电视台列表的意思）
+
+这个点与光猫之间有一条网线，我的打算是把网线劈开，其中四根接wifi，两外四根接个交换机，然后这个交换机在接那两个机顶盒。但是用户觉得用两个设备，台子上太乱。所以放弃，目前是接个交换机接两个机顶盒。
+
+2、另一个点在二楼，也是电视墙，不过是网络电视，客户坐着看解闷的，因为没有WiFi所以插着网线用。
+
+3、其他地方用网就是无线的需求了，目前有另一条宽带的wifi在一楼的休息室，相当于一个死角。一楼和二楼wifi覆盖基本没有。但是他们就这么着一直凑合着用。。。
+
+现在的需求：
+
+1、一楼卖手机和配件的那个吧台，是个死角，几乎没wifi信号，需要在一楼电视展示墙用一个路由器代替那个交换机，即能上网WiFi，也能带iptv信号。
+
+2、二楼除经理室与一楼休息室上下层，信号稍好，其他地方几乎都没wifi信号。需要在二楼电视墙加个路由器。
+
+解决：
+
+1、先说简单的，二楼电视墙那个直接加一个路由器就ok了。路由器调成自动获取IP地址，LAN口地址设置为192.168.2.1
+
+2、http://koolshare.cn/thread-72502-1-1.html
+参考这个帖子
+
+
+他的帖子里面也是2台IPTV机顶盒，他把VLAN3绑定到路由器的LAN3,LAN4了。
+然后VLAN2绑定的是1，2口，是互联网。
+
+以下开始
+
+首先把进入光猫，网络--网络设置--VLAN绑定--
+
+1、
+用户侧端口 千兆口打勾
+
+用户侧VLAN 填写3
+
+绑定WAN连接名称，选择vlan99
+
+2、
+用户侧端口 千兆口打勾
+
+用户侧VLAN 填写2
+
+绑定WAN连接名称，选择vlan100x
+
+至此就有两条vlan绑定信息了，都是千兆口，分别是3，vlan99；2，vlan100x
+
+这时我电脑接千兆口还是可以直接上网的。
+
+现在我把网线接到我的石像鬼路由器LAN1上。
+1、先把我的石像鬼的LAN 改为192.168.10.1
+
+
+
+------------------------------------先记录下路由器负载
+设备名称:Gargoyle
+石像鬼（Gargoyle）版本:1.9.2.1 (r49483)
+ by obsy
+设备型号:Qihoo 360 C301
+设备配置为:网关
+内存使用情况（已用/最大）:28.2MB / 123MB (22.9%)
+连接数（当前/最大）:125/4096
+CPU平均负荷:0.59 / 0.16 / 0.05 (1/5/15 分钟)
+
+-----------------------------------------------------
+石像鬼竟然不支持VLAN 划分。。。。。。。
+
+查了下资料，网友有解决了
+
+以下为网址
+http://www.right.com.cn/forum/thread-146647-1-1.html
+
+在设置里
+
+
+系统---路由器访问设置，把ssh打开，端口是22，用putty打开
+
+root
+admin
+
+进到主目录
+cd /
+ls
+
+
+
+root@Gargoyle:~# cd /
+root@Gargoyle:/# ls
+bin          etc          mnt          overlay      proc         root         sys          usr          www
+dev          lib          nfs          plugin_root  rom          sbin         tmp          var
+
+咱们进etc里
+再进config
+然后看到了network，我开始以为是个文件夹，结果怎么cd network都进不去，于是我
+cat network
+
+root@Gargoyle:/etc/config# cat network
+
+config interface 'loopback'
+        option ifname 'lo'
+        option proto 'static'
+        option ipaddr '127.0.0.1'
+        option netmask '255.0.0.0'
+
+config globals 'globals'
+        option ula_prefix 'fd59:b30a:854e::/48'
+
+config interface 'lan'
+        option ifname 'eth0'
+        option force_link '1'
+        option type 'bridge'
+        option proto 'static'
+        option netmask '255.255.255.0'
+        option ip6assign '60'
+        option dns '192.168.10.1'
+        option ipaddr '192.168.10.1'
+
+config interface 'wan'
+        option ifname 'eth1'
+        option proto 'dhcp'
+        option ipv6 '0'
+
+config interface 'wan6'
+        option ifname 'eth1'
+        option proto 'dhcpv6'
+
+config switch
+        option name 'switch0'#这个意思是建立一个交换机，名字是switch0
+        option reset '1'
+        option enable_vlan '1'#使能vlan1
+
+config switch_vlan#ports是绑定的意思，把这5个口都绑定到VLAN1上去。
+        option device 'switch0'
+        option vlan '1'
+        option ports '0 1 2 3 4'
+
+------------------------------------------------
+
+然后帖子里的是加上这些东西，需要一些变化
+
+config switch_vlan
+        option device 'eth0'
+        option vlan '1'
+        option ports '1 ' 
+
+#用作电视
+config switch_vlan
+        option device 'eth0'
+        option vlan '3'
+        option ports '2'
+
+
+config switch_vlan
+        option device 'eth1'
+        option vlan '2'
+        option ports '0'
+
+
+
+
+不行，wan正常，lan1，能获取地址，但是不能上网，lan2正常上网，但是不管lan1，还是lan2接机顶盒都卡50%。
+
+改掉
+config switch_vlan
+        option device 'switch0'
+        option vlan '1'
+        option ports '1 3 4' 
+
+#用作电视
+config switch_vlan
+        option device 'switch0'
+        option vlan '3'
+        option ports '2'
+
+
+config switch_vlan
+        option device 'switch0'
+        option vlan '2'
+        option ports '0'
+
+还是不行，lan1，lan2都不能获取ip，电视也都不行
+
+
+
+
+
+
+#eth0.1，对应路由器上的lan1~2口
+config switch_vlan
+        option device 'eth0' #eth0表示cpu的接口
+        option vlan '1' #vlan的标识，这里为1即为eth0.1，可参考下面两个配置理解
+        option ports '0t 2 3' #完整的应该是0t 1 2 3 4 5，1则是wan口，2~5分别对应lan1~4口。也有些路由是0 1 2 3 4 5t，那0则是wan口，1~4就对应lan1~4口，具体看系统默认生成的配置文件，或者参考op的官方文档。
+
+#eth0.3，对应路由器上的lan3~4口
+config switch_vlan
+        option device 'eth0'
+        option vlan '3'
+        option ports '0t 4 5'
+
+#eth0.2，对应路由器上的wan口
+config switch_vlan
+        option device 'eth0'
+        option vlan '2'
+        option ports '0t 1'
+
+小贴士：
+
+进入vi，是vi network
+编辑是"i"
+进入插入模式
+按"Tab"是缩进键，缩进量貌似默认是8个字符，这个可以设置
+
+进入到vi后默认是命令模式，如果进入"i"（编辑插入模式）
+按"ESC"可以回到命令模式，可以输任何命令。
+
+--------------------
+vi编辑器怎么设置tab缩进
+首先，在命令中输入vim ~/.vimrc
+
+按i进入编辑模式，输入set tabstop=4
+
+按Esc进入命令模式，输入：wq保存退出即可。
+--------------------------
+
+编辑好后按"ESC"输入命令":wq!"
+
+在命令模式下输入小写的"dd"就可以删除光标所在的一行，也就是按两下"d"
+
+按”x“删除一个字符
+
+network restart重启网络，不用重启路由器了。
+
+
+--------------------------------过程---------------------------
+login as: root
+root@192.168.10.1's password:
+
+
+BusyBox v1.23.2 (2017-01-11 16:49:36 CET) built-in shell (ash)
+
+
+             _____                             _
+            |  __ \                           | |
+            | |  \/ __ _ _ __ __ _  ___  _   _| | ___
+            | | __ / _` | '__/ _` |/ _ \| | | | |/ _ \
+            | |_\ \ (_| | | | (_| | (_) | |_| | |  __/
+             \____/\__,_|_|  \__, |\___/ \__, |_|\___|
+                              __/ |       __/ |
+                             |___/       |___/
+
+ ----------------------------------------------------------------
+ |                                                              |
+ | Gargoyle PL 1.9.2.1 (e015765)                                |
+ | OpenWrt Chaos Calmer 15.05.1 (r49483)                        |
+ | Build time: 2017-02-17 18:54 CET                             |
+ |                                                              |
+ | Cezary Jackiewicz (obsy), http://eko.one.pl                  |
+ |                                                              |
+ ----------------------------------------------------------------
+ | Machine: Qihoo 360 C301                                      |
+ | Uptime: 0d, 00:10:41                                         |
+ | Load: 0.13 0.17 0.13                                         |
+ | Flash: total: 8.1MB, free: 7.6MB, used: 6%                   |
+ | Memory: total: 123.0MB, free: 73.7MB, used: 40%              |
+ | WAN: 192.168.2.36, proto: dhcp                               |
+ | LAN: 192.168.10.1, leases: 1                                 |
+ | radio0: mode: ap, ssid: Gargoyle-5g, channel: 36, conn: 0    |
+ | radio1: mode: ap, ssid: Gargoyle, channel: 11, conn: 0       |
+ ----------------------------------------------------------------
+root@Gargoyle:~# ls
+root@Gargoyle:~# ls
+root@Gargoyle:~# sh
+
+
+BusyBox v1.23.2 (2017-01-11 16:49:36 CET) built-in shell (ash)
+
+root@Gargoyle:~# ls
+root@Gargoyle:~# ?
+sh: ?: not found
+root@Gargoyle:~# df
+Filesystem           1K-blocks      Used Available Use% Mounted on
+rootfs                    8256       508      7748   6% /
+/dev/root                 6400      6400         0 100% /rom
+tmpfs                    62980       256     62724   0% /tmp
+/dev/mtdblock7            8256       508      7748   6% /overlay
+overlayfs:/overlay        8256       508      7748   6% /
+tmpfs                      512         0       512   0% /dev
+root@Gargoyle:~# cd /etc/config/network
+sh: cd: can't cd to /etc/config/network
+root@Gargoyle:~# ls * -l
+ls: *: No such file or directory
+root@Gargoyle:~# /
+sh: /: Permission denied
+root@Gargoyle:~# cd root
+sh: cd: can't cd to root
+root@Gargoyle:~# cd /dev
+root@Gargoyle:/dev# ls
+bus                 mtd0ro              mtd2ro              mtd7ro
+console             mtd1                mtd3                mtd8
+cpu_dma_latency     mtd10               mtd3ro              mtd8ro
+full                mtd10ro             mtd4                mtd9
+fuse                mtd11               mtd4ro              mtd9ro
+kmsg                mtd11ro             mtd5                mtdblock0
+log                 mtd12               mtd5ro              mtdblock1
+mem                 mtd12ro             mtd6                mtdblock10
+memory_bandwidth    mtd1ro              mtd6ro              mtdblock11
+mtd0                mtd2                mtd7                mtdblock12
+root@Gargoyle:/dev# cd rot
+sh: cd: can't cd to rot
+root@Gargoyle:/dev# cd root
+sh: cd: can't cd to root
+root@Gargoyle:/dev# cd /root
+root@Gargoyle:~# ls
+root@Gargoyle:~# ls *
+ls: *: No such file or directory
+root@Gargoyle:~# ls -l
+root@Gargoyle:~# /
+sh: /: Permission denied
+root@Gargoyle:~# cd /
+root@Gargoyle:/# ls
+bin          etc          mnt          overlay      proc         root         sy
+dev          lib          nfs          plugin_root  rom          sbin         tm
+root@Gargoyle:/#
+root@Gargoyle:/# cd etc
+root@Gargoyle:/etc# ls
+TZ                    dnsmasq.time          group                 modules.d
+banner                dropbear              hosts                 msmtprc
+banner.failsafe       e2fsck.conf           hotplug-preinit.json  mtab
+chatscripts           ethers                hotplug.d             openvpn
+config                ethertypes            hotplug.json          openvpn.down
+crontabs              exports               init.d                openvpn.firewa
+ddns_gargoyle.conf    filesystems           inittab               openvpn.up
+ddns_providers.conf   firewall.user         iproute2              openwrt_releas
+device_info           fstab                 l7-protocols          openwrt_versio
+diag.sh               gargoyle_default_ifs  md5                   opkg
+dnsmasq.conf          gcom                  modules-boot.d        opkg.conf
+root@Gargoyle:/etc# cd config
+root@Gargoyle:/etc/config# cd
+root@Gargoyle:~# cd /etc/config/network
+sh: cd: can't cd to /etc/config/network
+root@Gargoyle:~# cd /
+root@Gargoyle:/# cd etc
+root@Gargoyle:/etc# cd config
+root@Gargoyle:/etc/config# ls
+adblock           dropbear          fstab             nfsd              p910nd
+ddns_gargoyle     email             gargoyle          openvpn           qos_garg
+dhcp              firewall          network           openvpn_gargoyle  samba
+root@Gargoyle:/etc/config# cd network
+sh: cd: can't cd to network
+root@Gargoyle:/etc/config# cd network
+sh: cd: can't cd to network
+root@Gargoyle:/etc/config# cd /network
+sh: cd: can't cd to /network
+root@Gargoyle:/etc/config# ls * -l
+-rw-rw-r--    1 root     root           169 Jan  6  2016 adblock
+-rw-r--r--    1 root     root          3261 Dec 26  2015 ddns_gargoyle
+-rw-r--r--    1 root     root          2157 Jul 23 18:58 dhcp
+-rw-r--r--    1 root     root           134 Feb 18  2017 dropbear
+-rw-rw-r--    1 root     root           161 Sep 27  2015 email
+-rw-r--r--    1 root     root          2871 Sep 18 20:18 firewall
+-rw-r--r--    1 root     root           151 Feb 18  2017 fstab
+-rw-r--r--    1 root     root          4697 Jul 23 18:56 gargoyle
+-rw-r--r--    1 root     root           743 Sep 18 20:18 network
+-rw-r--r--    1 root     root           263 Feb 18  2017 nfsd
+-rw-r--r--    1 root     root          1073 Feb 18  2017 openvpn
+-rw-rw-r--    1 root     root           767 Jun 18  2012 openvpn_gargoyle
+-rw-r--r--    1 root     root           121 Feb 18  2017 p910nd
+-rw-r--r--    1 root     root          2214 Sep 18 21:49 qos_gargoyle
+-rw-r--r--    1 root     root           457 Feb 18  2017 samba
+-rw-r--r--    1 root     root           431 Feb 18  2017 share_users
+-rw-r--r--    1 root     root          1260 Feb 18  2017 system
+-rw-r--r--    1 root     root           582 Feb 18  2017 uhttpd
+-rw-r--r--    1 root     root           246 Feb 18  2017 vsftpd
+-rw-r--r--    1 root     root           347 Feb 18  2017 webmon_gargoyle
+-rw-r--r--    1 root     root           782 Sep 18 20:18 wireless
+-rw-r--r--    1 root     root            61 Feb 18  2017 wol
+root@Gargoyle:/etc/config# cat network
+
+config interface 'loopback'
+        option ifname 'lo'
+        option proto 'static'
+        option ipaddr '127.0.0.1'
+        option netmask '255.0.0.0'
+
+config globals 'globals'
+        option ula_prefix 'fd59:b30a:854e::/48'
+
+config interface 'lan'
+        option ifname 'eth0'
+        option force_link '1'
+        option type 'bridge'
+        option proto 'static'
+        option netmask '255.255.255.0'
+        option ip6assign '60'
+        option dns '192.168.10.1'
+        option ipaddr '192.168.10.1'
+
+config interface 'wan'
+        option ifname 'eth1'
+        option proto 'dhcp'
+        option ipv6 '0'
+
+config interface 'wan6'
+        option ifname 'eth1'
+        option proto 'dhcpv6'
+
+config switch
+        option name 'switch0'
+        option reset '1'
+        option enable_vlan '1'
+
+config switch_vlan
+        option device 'switch0'
+        option vlan '1'
+        option ports '0 1 2 3 4'
+
+root@Gargoyle:/etc/config#
+root@Gargoyle:/etc/config# vi network
+root@Gargoyle:/etc/config# cat network
+
+config interface 'loopback'
+        option ifname 'lo'
+        option proto 'static'
+        option ipaddr '127.0.0.1'
+        option netmask '255.0.0.0'
+
+config globals 'globals'
+        option ula_prefix 'fd59:b30a:854e::/48'
+
+config interface 'lan'
+        option ifname 'eth0'
+        option force_link '1'
+        option type 'bridge'
+        option proto 'static'
+        option netmask '255.255.255.0'
+        option ip6assign '60'
+        option dns '192.168.10.1'
+        option ipaddr '192.168.10.1'
+
+config interface 'wan'
+        option ifname 'eth1'
+        option proto 'dhcp'
+        option ipv6 '0'
+
+config interface 'wan6'
+        option ifname 'eth1'
+        option proto 'dhcpv6'
+
+config switch
+        option name 'switch0'
+        option reset '1'
+        option enable_vlan '1'
+
+config switch_vlan
+        option device 'switch0'
+        option vlan '1'
+        option ports '0 1 2 3 4'
+
+config switch_vlan
+        option device 'eth0'
+        option vlan '1'
+        option ports '1 2'
+
+config switch_vlan
+        option device 'eth0'
+        option vlan '3'
+        option ports '3 4'
+
+config switch_vlan
+        option device 'eth0'
+        option vlan '2'
+        option ports '0'
+root@Gargoyle:/etc/config# reboot
+root@Gargoyle:/etc/config#
+
+
